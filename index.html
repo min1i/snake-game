@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>구름 속 스네이크 게임</title>
+<style>
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background-color: #2c3e50; /* 게임판 밖의 어두운 배경 */
+    font-family: 'Arial', sans-serif;
+  }
+
+  #gameCanvas {
+    /* --- 배경 이미지 설정 --- */
+    background-image: url('image.png'); /* 제공해주신 이미지 파일명 */
+    background-size: cover;           /* 캔버스 크기에 맞게 꽉 채움 */
+    background-position: center;      /* 중앙 정렬 */
+    /* ----------------------- */
+    
+    border: 3px solid #ecf0f1;
+    box-shadow: 0px 0px 20px rgba(0,0,0,0.5);
+    border-radius: 10px;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas" width="400" height="400"></canvas>
+
+<script>
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const gridSize = 20; // 한 칸의 크기
+  const tileCount = canvas.width / gridSize; // 가로/세로 칸 수
+
+  let snake = [{x: 10, y: 10}]; // 뱀 초기 위치
+  let food = {x: 15, y: 15};    // 사과 초기 위치
+  let dx = 0;
+  let dy = 0;
+  let score = 0;
+  let gameSpeed = 100; // 게임 속도 (낮을수록 빠름)
+  let gameLoop;
+
+  // 사과를 랜덤한 위치에 생성하는 함수
+  function createFood() {
+    food = {
+      x: Math.floor(Math.random() * tileCount),
+      y: Math.floor(Math.random() * tileCount)
+    };
+    // 뱀 몸통 위에 사과가 생기면 다시 생성
+    for (let i = 0; i < snake.length; i++) {
+      if (snake[i].x === food.x && snake[i].y === food.y) {
+        createFood();
+        return;
+      }
+    }
+  }
+
+  // 화면 그리기 함수
+  function draw() {
+    // 캔버스를 비워 배경 이미지가 보이게 함 (핵심!)
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 사과 그리기 (붉은색)
+    ctx.fillStyle = '#e74c3c';
+    ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 2, gridSize - 2);
+
+    // 뱀 그리기 (배경과 대비되는 짙은 녹색)
+    ctx.fillStyle = '#2ecc71'; 
+    for (let i = 0; i < snake.length; i++) {
+        // 머리는 약간 다르게 표현
+        if(i === 0) ctx.fillStyle = '#27ae60';
+        else ctx.fillStyle = '#2ecc71';
+        ctx.fillRect(snake[i].x * gridSize, snake[i].y * gridSize, gridSize - 2, gridSize - 2);
+    }
+
+    // 점수 표시
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 18px Arial';
+    ctx.fillText('Score: ' + score, 10, 30);
+  }
+
+  // 뱀 이동 함수
+  function move() {
+    const head = {x: snake[0].x + dx, y: snake[0].y + dy};
+    snake.unshift(head);
+
+    // 사과를 먹었을 때
+    if (head.x === food.x && head.y === food.y) {
+      score += 10;
+      createFood();
+      // 속도 증가 (난이도 상승)
+      if (gameSpeed > 50) {
+          gameSpeed -= 2;
+          clearInterval(gameLoop);
+          gameLoop = setInterval(main, gameSpeed);
+      }
+    } else {
+      snake.pop(); // 사과를 못 먹었으면 꼬리 제거
+    }
+  }
+
+  // 충돌 체크 함수
+  function checkCollision() {
+    const head = snake[0];
+    // 벽 충돌
+    if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
+      return true;
+    }
+    // 자기 자신 충돌
+    for (let i = 1; i < snake.length; i++) {
+      if (snake[i].x === head.x && snake[i].y === head.y) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // 게임 오버 처리 함수
+  function gameOver() {
+    clearInterval(gameLoop);
+    ctx.fillStyle = 'rgba(0,0,0,0.7)'; // 반투명 검은색 배경
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 40px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Game Over!', canvas.width / 2, canvas.height / 2 - 20);
+    ctx.font = '20px Arial';
+    ctx.fillText('Score: ' + score, canvas.width / 2, canvas.height / 2 + 30);
+    ctx.fillText('새로고침(F5)하여 다시 시작', canvas.width / 2, canvas.height / 2 + 70);
+  }
+
+  // 메인 게임 루프
+  function main() {
+    if (checkCollision()) {
+      gameOver();
+      return;
+    }
+    move();
+    draw();
+  }
+
+  // 키보드 입력 처리
+  document.addEventListener('keydown', (e) => {
+    // 처음 움직일 때 게임 시작
+    if (dx === 0 && dy === 0 && !gameLoop && ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) {
+        gameLoop = setInterval(main, gameSpeed);
+    }
+
+    if (e.key === 'ArrowUp' && dy === 0) { dx = 0; dy = -1; }
+    if (e.key === 'ArrowDown' && dy === 0) { dx = 0; dy = 1; }
+    if (e.key === 'ArrowLeft' && dx === 0) { dx = -1; dy = 0; }
+    if (e.key === 'ArrowRight' && dx === 0) { dx = 1; dy = 0; }
+  });
+
+  // 초기 화면 그리기
+  draw();
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(0,0,canvas.width, canvas.height);
+  ctx.fillStyle = 'white';
+  ctx.textAlign = 'center';
+  ctx.font = '20px Arial';
+  ctx.fillText('방향키를 눌러 시작하세요!', canvas.width/2, canvas.height/2);
+
+</script>
+</body>
+</html>
